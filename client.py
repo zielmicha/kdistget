@@ -9,7 +9,7 @@ import threading
 import select
 import Queue
 
-BLOCK_SIZE = 1024
+BLOCK_SIZE = 1024 * 1024
 
 server = None
 
@@ -27,8 +27,8 @@ to_send_has = []
 
 ack_queue = Queue.Queue()
 
-MAX_NEED_MSG = 5
-SENDER_THREADS = 2
+MAX_NEED_MSG = 40
+SENDER_THREADS = 5
 
 def tracker_loop():
     global sent_need_msg, waiting_senders, to_send_has
@@ -38,7 +38,7 @@ def tracker_loop():
     raw_sock = sock_connect(server)
     sock = raw_sock.makefile('r+', 1)
     
-    sock.write('%s:%d\n' % ('localhost', port))
+    sock.write('%d\n' % (port))
     
     to_send_has = valid_blocks
     

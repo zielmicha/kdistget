@@ -25,13 +25,15 @@ def main(port):
     while True:
         client, addr = sock.accept()
         print 'incoming connection from', addr
-        threading.Thread(target=handle_client, args=(client, )).start()
+        threading.Thread(target=handle_client, args=(client, addr[0])).start()
         del client
 
-def handle_client(raw_sock):
+def handle_client(raw_sock, client_ip):
     sock = raw_sock.makefile('r+', 1)
     
-    host = sock.readline().strip()
+    port = sock.readline().strip()
+    host = '%s:%s' % (client_ip, port)
+    print 'connected', host
     
     client = clients[host] = Client(host)
     
