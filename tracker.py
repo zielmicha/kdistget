@@ -37,46 +37,54 @@ def handle_client(raw_sock, client_ip):
     
     client = clients[host] = Client(host)
     
-    while True:
-        line = sock.readline().strip()
-        
-        if not line:
-            print '========================'
-            print 'exiting client for %s' % host
-            print '========================'
-            return
-        
-        print host, repr(line)
-        if line[0] == 'h':
-            with lock:
-                hash = line[1:]
-                client.has.add(hash)
-                if hash in client.need:
-                    client.need.remove(hash)
-        elif line[0] == 'n':
-            with lock:
-                client.need.add(line[1:])
-        elif line[0] == 'g':
-            res = None
-            timeout = 10
-            while not res:
-                #print 'finding pair'
-                res = find_pair_and_save(client)
-                time.sleep(0.05)
-                timeout -= 1
-                if not timeout:
-                    break
+    try:
+        while True:
+            line = sock.readline().strip()
             
-            if not res:
-                sock.write('skip -\n')
-                sock.flush()
+            if not line:
+                return
+            
+            print host, repr(line)
+            if line[0] == 'h':
+                with lock:
+                    hash = line[1:]
+                    client.has.add(hash)
+                    if hash in client.need:
+                        client.need.remove(hash)
+            elif line[0] == 'n':
+                with lock:
+                    client.need.add(line[1:])
+            elif line[0] == 'g':
+                res = None
+                timeout = 10
+                while not res:
+                    #print 'finding pair'
+                    res = find_pair_and_save(client)
+                    time.sleep(0.05)
+                    timeout -= 1
+                    if not timeout:
+                        break
+                
+                if not res:
+                    sock.write('skip -\n')
+                    sock.flush()
+                else:
+                    other, hash = res
+                    print 'requesting', host, 'to send', hash, 'to', other
+                    sock.write('ack %s %s\n' % (other, hash))
+                    sock.flush()
             else:
-                other, hash = res
-                print 'requesting', host, 'to send', hash, 'to', other
-                sock.write('ack %s %s\n' % (other, hash))
-                sock.flush()
-        else:
-            print 'unknown command', line[0]
+                print 'unknown command', line[0]
+    finally:
+        with lock:
+            for to, hash in client.sending:
+                to.need.add(hash)
+            del clients[host]
+        
+    
+        print '========================'
+        print 'exiting client for %s' % host
+        print '========================'
 
 def find_pair_and_save(client):
     with lock:
