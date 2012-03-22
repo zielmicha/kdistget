@@ -1,11 +1,29 @@
 #!/usr/bin/python
+from __future__ import print_function
+
 import socket
 import sys
 import threading
 import time
+import os
 
 clients = {}
 lock = threading.Lock()
+
+try:
+    import signal
+    signal.signal(signal.SIGINT, lambda a,b: os._exit(1))
+except ImportError:
+    pass
+
+def d(*s):
+    pass #print(*s)
+
+def log(*s):
+    print(*s)
+
+def wtf(*s):
+    print('WTF:', *s)
 
 class Client:
     def __init__(self, host):
@@ -24,7 +42,7 @@ def main(port):
     
     while True:
         client, addr = sock.accept()
-        print 'incoming connection from', addr
+        d('incoming connection from', addr)
         threading.Thread(target=handle_client, args=(client, addr[0])).start()
         del client
 
@@ -33,7 +51,8 @@ def handle_client(raw_sock, client_ip):
     
     port = sock.readline().strip()
     host = '%s:%s' % (client_ip, port)
-    print 'connected', host
+    
+    log('connected', host)
     
     client = clients[host] = Client(host)
     
@@ -44,7 +63,7 @@ def handle_client(raw_sock, client_ip):
             if not line:
                 return
             
-            print host, repr(line)
+            d(host, repr(line))
             if line[0] == 'h':
                 with lock:
                     hash = line[1:]
@@ -70,21 +89,20 @@ def handle_client(raw_sock, client_ip):
                     sock.flush()
                 else:
                     other, hash = res
-                    print 'requesting', host, 'to send', hash, 'to', other
+                    d('requesting', host, 'to send', hash, 'to', other)
                     sock.write('ack %s %s\n' % (other, hash))
                     sock.flush()
             else:
-                print 'unknown command', line[0]
+                wtf('unknown command', line[0])
+    except socket.error:
+        pass
     finally:
         with lock:
             for to, hash in client.sending:
                 to.need.add(hash)
             del clients[host]
         
-    
-        print '========================'
-        print 'exiting client for %s' % host
-        print '========================'
+        log('disconnect %s' % host)
 
 def find_pair_and_save(client):
     with lock:

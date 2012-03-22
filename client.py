@@ -1,4 +1,6 @@
 #!/usr/bin/python
+from __future__ import print_function
+
 import sys
 import hashlib
 import os
@@ -8,6 +10,12 @@ import socket
 import threading
 import select
 import Queue
+
+try:
+    import signal
+    signal.signal(signal.SIGINT, lambda a,b: os._exit(1))
+except ImportError:
+    pass
 
 BLOCK_SIZE = 1024 * 1024 * 6
 
@@ -27,8 +35,17 @@ to_send_has = []
 
 ack_queue = Queue.Queue()
 
-MAX_NEED_MSG = 40
+MAX_NEED_MSG = 500
 SENDER_THREADS = 7
+
+def d(*s):
+    pass #print(*s)
+
+def log(*s):
+    print(*s)
+
+def wtf(*s):
+    print('WTF: ', *s)
 
 def tracker_loop():
     global sent_need_msg, waiting_senders, to_send_has
@@ -49,17 +66,16 @@ def tracker_loop():
         
         
         for hash in _to_send_has:
-            print 'has', hash
+            d('has', hash)
             sock.write('h%s\n' % hash)
         
         sock.flush()
         
-        #print 'waiting_need_blocks', len(waiting_need_blocks), 'sent', sent_need_msg
         while waiting_need_blocks and sent_need_msg < MAX_NEED_MSG:
             with lock:
                 hash = waiting_need_blocks.pop()
                 sent_need_msg += 1
-            print 'send need %s' % hash
+            d('send need %s' % hash)
             sock.write('n%s\n' % hash)
             sock.flush()
         
@@ -76,13 +92,13 @@ def tracker_loop():
             cmd, rest = sock.readline().split(None, 1)
             if cmd == 'ack':
                 client, hash = rest.split(None)
-                print 'ack', client, hash
+                d('ack', client, hash)
                 ack_queue.put((client, hash))
             elif cmd == 'skip':
                 with lock:
                     waiting_senders += 1
             else:
-                print 'unknown command %r' % cmd
+                wtf('unknown command %r' % cmd)
 
 def sender_loop():
     global waiting_senders
@@ -93,12 +109,12 @@ def sender_loop():
         
         client, hash = ack_queue.get()
         
-        print 'sending', hash, 'to', client
+        d('sending', hash, 'to', client)
         
         ptrs = block_ptrs[hash]
         
         if not ptrs:
-            print 'doesn\'t have block %s' % hash
+            wtf('doesn\'t have block %s' % hash)
         
         data = ptrs[0]()
         
@@ -110,7 +126,7 @@ def sender_loop():
         sock.close()
         raw_sock.close()
         
-        print 'sent!'
+        d('sent!')
 
 def listener_loop():
     sock = socket.socket()
@@ -120,15 +136,14 @@ def listener_loop():
     
     while True:
         client, addr = sock.accept()
-        print 'incoming connection from', addr
+        d('incoming connection from', addr)
         threading.Thread(target=handle_client, args=(client, )).start()
         del client
 
 def handle_client(raw_sock):
     sock = raw_sock.makefile('r+')
-    print 'handle_client'
     hash = sock.readline().strip()
-    print 'incoming block', hash
+    d('incoming block', hash)
     data = sock.read()
     
     add_incoming_data(hash, data)
@@ -139,7 +154,7 @@ def add_incoming_data(hash, data):
     global sent_need_msg
     
     if make_hash(data) != hash:
-        print 'got corrupt data!', hash
+        d('got corrupt data!', hash)
         return 
     
     with lock:
@@ -152,8 +167,12 @@ def add_incoming_data(hash, data):
     for block_ptr in block_ptrs[hash]:
         block_ptr(data)
     
-    print 'imported %s, invalid blocks left %d' % (hash, len(invalid_blocks))
-    print 'send_need_msg = %d' % sent_need_msg
+    d('imported %s, invalid blocks left %d' % (hash, len(invalid_blocks)))
+    d('send_need_msg = %d' % sent_need_msg)
+    
+    all_blocks = len(invalid_blocks) + len(valid_blocks)
+    percent = (len(valid_blocks) / float(all_blocks)) * 100
+    log('%.1f%% - %d/%d' % (percent, len(valid_blocks), all_blocks))
 
 def main_loop():
     threading.Thread(target=tracker_loop).start()
@@ -173,6 +192,8 @@ def make_hash(block):
 def main_seed(port, fn):
     if os.path.exists(fn + '.kdg') and not is_kdg(fn + '.kdg'):
         sys.exit('%s.kdg exists and is not a kdg file - not overwriting')
+    
+    log('computing hashes')
     create_kdg(fn, fn + '.kdg')
     
     main_get(port, fn, fn + '.kdg')
@@ -181,9 +202,10 @@ def main_get(port_, datafn, fn):
     global port
     port = port_
     
+    log('checking block hashes')
     read_kdg(datafn, fn)
     read_blocks()
-    print 'read valid blocks %d/%d' % (len(valid_blocks), len(valid_blocks) + len(invalid_blocks))
+    log('read valid blocks %d/%d' % (len(valid_blocks), len(valid_blocks) + len(invalid_blocks)))
     
     main_loop()
 
@@ -198,13 +220,11 @@ def read_blocks():
             else:
                 invalids.append(ptr)
         
-        #print 'for hash:', len(valids), 'valids', len(invalids), 'invalids'
-        
         if valids:
             if invalids:
                 data = valids[0]()
                 for ptr in invalids:
-                    print 'correcting invalid block for', hash
+                    log('correcting invalid block for', hash)
                     ptr(data)
             valid_blocks.add(hash)
         else:
