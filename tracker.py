@@ -60,7 +60,7 @@ def handle_client(raw_sock, client_ip):
                 while not res:
                     #print 'finding pair'
                     res = find_pair_and_save(client)
-                    time.sleep(0.05)
+                    time.sleep(0.07)
                     timeout -= 1
                     if not timeout:
                         break

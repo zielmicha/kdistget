@@ -9,7 +9,7 @@ import threading
 import select
 import Queue
 
-BLOCK_SIZE = 1024 * 1024
+BLOCK_SIZE = 1024 * 1024 * 6
 
 server = None
 
@@ -28,7 +28,7 @@ to_send_has = []
 ack_queue = Queue.Queue()
 
 MAX_NEED_MSG = 40
-SENDER_THREADS = 5
+SENDER_THREADS = 7
 
 def tracker_loop():
     global sent_need_msg, waiting_senders, to_send_has
@@ -70,7 +70,7 @@ def tracker_loop():
         
         sock.flush()
         
-        r, _, _ = select.select([sock], [], [], 0.1)
+        r, _, _ = select.select([sock], [], [], 1.0)
         
         if r:
             cmd, rest = sock.readline().split(None, 1)
