@@ -160,6 +160,8 @@ def add_incoming_data(hash, data):
     with lock:
         if hash in invalid_blocks:
             invalid_blocks.remove(hash)
+        else:
+            log('got duplicate block')
         to_send_has.append(hash)
         valid_blocks.add(hash)
         sent_need_msg -= 1
@@ -210,6 +212,7 @@ def main_get(port_, datafn, fn):
     main_loop()
 
 def read_blocks():
+    corrected = 0
     for hash, vals in block_ptrs.items():
         valids = []
         invalids = []
@@ -224,11 +227,14 @@ def read_blocks():
             if invalids:
                 data = valids[0]()
                 for ptr in invalids:
-                    log('correcting invalid block for', hash)
+                    corrected += 1
                     ptr(data)
             valid_blocks.add(hash)
         else:
             invalid_blocks.add(hash)
+    
+    if corrected:
+        log('corrected %d invalid blocks' % hash)
 
 def read_kdg(datafn, fn):
     if not os.path.exists(datafn):
