@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 import os
+import random
 
 clients = {}
 lock = threading.Lock()
@@ -106,13 +107,15 @@ def handle_client(raw_sock, client_ip):
 
 def find_pair_and_save(client):
     with lock:
-        for other in clients.values():
+        client_list = list(clients.values())
+        random.shuffle(client_list)
+        for other in client_list:
             if other == client: continue
             
             good = other.need.intersection(client.has)
             #print 'need of %s: %s' % (other.host, other.need)
             if good:
-                hash = good.pop()
+                hash = random.choice(list(good))
                 client.sending.add((other, hash))
                 other.need.remove(hash)
                 return other.host, hash
