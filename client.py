@@ -234,7 +234,7 @@ def read_blocks():
             invalid_blocks.add(hash)
     
     if corrected:
-        log('corrected %d invalid blocks' % hash)
+        log('corrected %d invalid blocks' % corrected)
 
 def read_kdg(datafn, fn):
     if not os.path.exists(datafn):

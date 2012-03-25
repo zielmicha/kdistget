@@ -101,7 +101,10 @@ def handle_client(raw_sock, client_ip):
         with lock:
             for to, hash in client.sending:
                 to.need.add(hash)
-            del clients[host]
+            try:
+                del clients[host]
+            except KeyError:
+                pass
         
         log('disconnect %s' % host)
 
